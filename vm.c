@@ -585,6 +585,8 @@ rb_serial_t ruby_vm_constant_cache_invalidations = 0;
 rb_serial_t ruby_vm_constant_cache_misses = 0;
 rb_serial_t ruby_vm_global_cvar_state = 1;
 
+int rb_iseq_eval_main_p;
+
 static const struct rb_callcache vm_empty_cc = {
     .flags = T_IMEMO | (imemo_callcache << FL_USHIFT) | VM_CALLCACHE_UNMARKABLE,
     .klass = Qfalse,
@@ -2856,6 +2858,8 @@ rb_iseq_eval_main(const rb_iseq_t *iseq)
 {
     rb_execution_context_t *ec = GET_EC();
     VALUE val;
+
+    rb_iseq_eval_main_p = 1;
 
     vm_set_main_stack(ec, iseq);
     val = vm_exec(ec);

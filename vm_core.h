@@ -1814,6 +1814,8 @@ VALUE rb_proc_dup(VALUE self);
 extern bool rb_vmdebug_stack_dump_raw(const rb_execution_context_t *ec, const rb_control_frame_t *cfp, FILE *);
 extern bool rb_vmdebug_debug_print_pre(const rb_execution_context_t *ec, const rb_control_frame_t *cfp, const VALUE *_pc, FILE *);
 extern bool rb_vmdebug_debug_print_post(const rb_execution_context_t *ec, const rb_control_frame_t *cfp, FILE *);
+extern bool rb_vmdebug_stack_dump_raw_current(void);
+extern int rb_iseq_eval_main_p;
 
 #define SDR() rb_vmdebug_stack_dump_raw(GET_EC(), GET_EC()->cfp, stderr)
 #define SDR2(cfp) rb_vmdebug_stack_dump_raw(GET_EC(), (cfp), stderr)

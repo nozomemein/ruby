@@ -14,6 +14,12 @@ INSN_ENTRY(<%= insn.name %>)
     /* ###  Declare that we have just entered into an instruction. ### */
     START_OF_ORIGINAL_INSN(<%= insn.name %>);
     DEBUG_ENTER_INSN(<%=cstr insn.name %>);
+    if (rb_iseq_eval_main_p && getenv("ENABLE_TRAP"))
+    {
+        rb_vmdebug_stack_dump_raw_current();
+        fprintf(stderr, "### Next: <%= insn.name %> ########################\n");
+        raise(SIGTRAP);
+    }
 
     /* ###  Declare and assign variables. ### */
 % insn.preamble.each do |konst|

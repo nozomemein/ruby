@@ -726,17 +726,17 @@ finish_iseq_build(rb_iseq_t *iseq)
     return Qtrue;
 }
 
-static rb_compile_option_t COMPILE_OPTION_DEFAULT = {
-    .inline_const_cache = OPT_INLINE_CONST_CACHE,
-    .peephole_optimization = OPT_PEEPHOLE_OPTIMIZATION,
-    .tailcall_optimization = OPT_TAILCALL_OPTIMIZATION,
-    .specialized_instruction = OPT_SPECIALISED_INSTRUCTION,
-    .operands_unification = OPT_OPERANDS_UNIFICATION,
-    .instructions_unification = OPT_INSTRUCTIONS_UNIFICATION,
-    .frozen_string_literal = OPT_FROZEN_STRING_LITERAL,
-    .debug_frozen_string_literal = OPT_DEBUG_FROZEN_STRING_LITERAL,
-    .coverage_enabled = TRUE,
-};
+static rb_compile_option_t COMPILE_OPTION_DEFAULT = {0};
+    // .inline_const_cache = OPT_INLINE_CONST_CACHE,
+    // .peephole_optimization = OPT_PEEPHOLE_OPTIMIZATION,
+    // .tailcall_optimization = OPT_TAILCALL_OPTIMIZATION,
+    // .specialized_instruction = OPT_SPECIALISED_INSTRUCTION,
+    // .operands_unification = OPT_OPERANDS_UNIFICATION,
+    // .instructions_unification = OPT_INSTRUCTIONS_UNIFICATION,
+    // .frozen_string_literal = OPT_FROZEN_STRING_LITERAL,
+    // .debug_frozen_string_literal = OPT_DEBUG_FROZEN_STRING_LITERAL,
+    // .coverage_enabled = TRUE,
+// };
 
 static const rb_compile_option_t COMPILE_OPTION_FALSE = {
     .frozen_string_literal = -1, // unspecified

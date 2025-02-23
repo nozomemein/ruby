@@ -209,7 +209,7 @@ control_frame_dump(const rb_execution_context_t *ec, const rb_control_frame_t *c
 bool
 rb_vmdebug_stack_dump_raw(const rb_execution_context_t *ec, const rb_control_frame_t *cfp, FILE *errout)
 {
-#if 0
+#if 1
     VALUE *sp = cfp->sp;
     const VALUE *ep = cfp->ep;
     VALUE *p, *st, *t;
