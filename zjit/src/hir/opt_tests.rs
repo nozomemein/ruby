@@ -1500,7 +1500,7 @@ mod hir_opt_tests {
           PatchPoint MethodRedefined(Array@0x1000, []@0x1008, cme:0x1010)
           PatchPoint NoSingletonClass(Array@0x1000)
           v25:ArrayExact = GuardType v9, ArrayExact
-          v26:CInt64 = UnboxFixnum v14
+          v26:CInt64[0] = UnboxFixnum v14
           v27:BasicObject = ArrayAref v25, v26
           IncrCounter inline_cfunc_optimized_send_count
           CheckInterrupts
@@ -4633,7 +4633,7 @@ mod hir_opt_tests {
           v13:Fixnum[0] = Const Value(0)
           PatchPoint MethodRedefined(Array@0x1010, []@0x1018, cme:0x1020)
           PatchPoint NoSingletonClass(Array@0x1010)
-          v27:CInt64 = UnboxFixnum v13
+          v27:CInt64[0] = UnboxFixnum v13
           v28:BasicObject = ArrayAref v23, v27
           IncrCounter inline_cfunc_optimized_send_count
           CheckInterrupts
@@ -4663,11 +4663,11 @@ mod hir_opt_tests {
           v13:Fixnum[1] = Const Value(1)
           PatchPoint MethodRedefined(Array@0x1008, []@0x1010, cme:0x1018)
           PatchPoint NoSingletonClass(Array@0x1008)
-          v24:CInt64 = UnboxFixnum v13
-          v25:BasicObject = ArrayAref v11, v24
+          v24:CInt64[1] = UnboxFixnum v13
+          v27:Fixnum[5] = Const Value(5)
           IncrCounter inline_cfunc_optimized_send_count
           CheckInterrupts
-          Return v25
+          Return v27
         ");
     }
 
@@ -4691,11 +4691,11 @@ mod hir_opt_tests {
           v13:Fixnum[-3] = Const Value(-3)
           PatchPoint MethodRedefined(Array@0x1008, []@0x1010, cme:0x1018)
           PatchPoint NoSingletonClass(Array@0x1008)
-          v24:CInt64 = UnboxFixnum v13
-          v25:BasicObject = ArrayAref v11, v24
+          v24:CInt64[-3] = UnboxFixnum v13
+          v27:Fixnum[4] = Const Value(4)
           IncrCounter inline_cfunc_optimized_send_count
           CheckInterrupts
-          Return v25
+          Return v27
         ");
     }
 
@@ -4719,11 +4719,11 @@ mod hir_opt_tests {
           v13:Fixnum[-10] = Const Value(-10)
           PatchPoint MethodRedefined(Array@0x1008, []@0x1010, cme:0x1018)
           PatchPoint NoSingletonClass(Array@0x1008)
-          v24:CInt64 = UnboxFixnum v13
-          v25:BasicObject = ArrayAref v11, v24
+          v24:CInt64[-10] = UnboxFixnum v13
+          v27:NilClass = Const Value(nil)
           IncrCounter inline_cfunc_optimized_send_count
           CheckInterrupts
-          Return v25
+          Return v27
         ");
     }
 
@@ -4747,11 +4747,11 @@ mod hir_opt_tests {
           v13:Fixnum[10] = Const Value(10)
           PatchPoint MethodRedefined(Array@0x1008, []@0x1010, cme:0x1018)
           PatchPoint NoSingletonClass(Array@0x1008)
-          v24:CInt64 = UnboxFixnum v13
-          v25:BasicObject = ArrayAref v11, v24
+          v24:CInt64[10] = UnboxFixnum v13
+          v27:NilClass = Const Value(nil)
           IncrCounter inline_cfunc_optimized_send_count
           CheckInterrupts
-          Return v25
+          Return v27
         ");
     }
 
@@ -6636,7 +6636,7 @@ mod hir_opt_tests {
           v19:Fixnum[0] = Const Value(0)
           PatchPoint MethodRedefined(Array@0x1008, []@0x1010, cme:0x1018)
           PatchPoint NoSingletonClass(Array@0x1008)
-          v30:CInt64 = UnboxFixnum v19
+          v30:CInt64[0] = UnboxFixnum v19
           v31:BasicObject = ArrayAref v14, v30
           IncrCounter inline_cfunc_optimized_send_count
           CheckInterrupts
@@ -6982,11 +6982,11 @@ mod hir_opt_tests {
           v31:ArrayExact = GuardType v9, ArrayExact
           v32:ArrayExact = GuardNotFrozen v31
           v33:ArrayExact = GuardNotShared v32
-          v34:CInt64 = UnboxFixnum v16
+          v34:CInt64[1] = UnboxFixnum v16
           v35:CInt64 = ArrayLength v33
-          v36:CInt64 = GuardLess v34, v35
+          v36:CInt64[1] = GuardLess v34, v35
           v37:CInt64[0] = Const CInt64(0)
-          v38:CInt64 = GuardGreaterEq v36, v37
+          v38:CInt64[1] = GuardGreaterEq v36, v37
           ArrayAset v33, v38, v18
           WriteBarrier v33, v18
           IncrCounter inline_cfunc_optimized_send_count
