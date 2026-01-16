@@ -470,6 +470,7 @@ fn gen_insn(cb: &mut CodeBlock, jit: &mut JITState, asm: &mut Assembler, functio
         Insn::SetGlobal { id, val, state } => no_output!(gen_setglobal(jit, asm, *id, opnd!(val), &function.frame_state(*state))),
         Insn::GetGlobal { id, state } => gen_getglobal(jit, asm, *id, &function.frame_state(*state)),
         &Insn::GetLocal { ep_offset, level, use_sp, .. } => gen_getlocal(asm, ep_offset, level, use_sp),
+        &Insn::GetBlockParam { ep_offset, level, state } => gen_getblockparam(jit, asm, ep_offset, level, &function.frame_state(state)),
         &Insn::SetLocal { val, ep_offset, level } => no_output!(gen_setlocal(asm, opnd!(val), function.type_of(val), ep_offset, level)),
         Insn::GetConstantPath { ic, state } => gen_get_constant_path(jit, asm, *ic, &function.frame_state(*state)),
         Insn::GetClassVar { id, ic, state } => gen_getclassvar(jit, asm, *id, *ic, &function.frame_state(*state)),
@@ -664,6 +665,44 @@ fn gen_setlocal(asm: &mut Assembler, val: Opnd, val_type: Type, local_ep_offset:
         let local_index = -local_ep_offset;
         asm_ccall!(asm, rb_vm_env_write, ep, local_index.into(), val);
     }
+}
+
+/// Get the block parameter as a Proc and cache it in the environment.
+fn gen_getblockparam(jit: &mut JITState, asm: &mut Assembler, ep_offset: u32, level: u32, state: &FrameState) -> Opnd {
+    // If already modified, just read from EP.
+    let ep = gen_get_ep(asm, level);
+    let flags = Opnd::mem(64, ep, SIZEOF_VALUE_I32 * (VM_ENV_DATA_INDEX_FLAGS as i32));
+    asm.test(flags, VM_FRAME_FLAG_MODIFIED_BLOCK_PARAM.into());
+    let done = asm.new_label("getblockparam_done");
+    asm.jnz(done.clone());
+
+    // Bail out if write barrier is required.
+    asm.test(flags, VM_ENV_FLAG_WB_REQUIRED.into());
+    asm.jnz(side_exit(jit, state, SideExitReason::BlockParamWbRequired));
+
+    // Convert block handler to Proc.
+    gen_prepare_leaf_call_with_gc(asm, state);
+    let block_handler = asm.load(Opnd::mem(64, ep, SIZEOF_VALUE_I32 * VM_ENV_DATA_INDEX_SPECVAL));
+    let proc = asm_ccall!(asm, rb_vm_bh_to_procval, EC, block_handler);
+
+    // Write Proc to EP and mark modified.
+    let ep = gen_get_ep(asm, level);
+    let local_ep_offset = c_int::try_from(ep_offset).unwrap_or_else(|_| {
+        panic!("Could not convert local_ep_offset {ep_offset} to i32")
+    });
+    let offset = -(SIZEOF_VALUE_I32 * local_ep_offset);
+    asm.mov(Opnd::mem(64, ep, offset), proc);
+
+    let flags = Opnd::mem(64, ep, SIZEOF_VALUE_I32 * (VM_ENV_DATA_INDEX_FLAGS as i32));
+    let flags_val = asm.load(flags);
+    let modified = asm.or(flags_val, VM_FRAME_FLAG_MODIFIED_BLOCK_PARAM.into());
+    asm.store(flags, modified);
+
+    asm.write_label(done);
+
+    // Read the Proc from EP.
+    let ep = gen_get_ep(asm, level);
+    asm.load(Opnd::mem(64, ep, offset))
 }
 
 fn gen_guard_block_param_proxy(jit: &JITState, asm: &mut Assembler, level: u32, state: &FrameState) {

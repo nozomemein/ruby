@@ -470,6 +470,31 @@ class TestZJIT < Test::Unit::TestCase
     }, insns: [:getblockparamproxy]
   end
 
+  def test_getblockparam
+    assert_compiles '2', %q{
+      def test(&blk)
+        blk
+      end
+      test { 2 }.call
+      test { 2 }.call
+    }, insns: [:getblockparam]
+  end
+
+  def test_getblockparam_nested
+    assert_compiles ':ok', %q{
+      def test(&block)
+        ret = :ok
+        1.times do |x|
+          b = block
+          ret = :ng unless block
+        end
+        ret
+      end
+      test {}
+      test {}
+    }
+  end
+
   def test_call_a_forwardable_method
     assert_runs '[]', %q{
       def test_root = forwardable
