@@ -433,6 +433,51 @@ fn test_getblockparam() {
 }
 
 #[test]
+fn test_setblockparam() {
+    eval("
+        def test(&block)
+          block = proc { 3 }
+          blk = block
+          blk.call
+        end
+        test { 1 }
+    ");
+    assert_contains_opcode("test", YARVINSN_setblockparam);
+    assert_snapshot!(inspect("test { 1 }"), @"3");
+}
+
+#[test]
+fn test_setblockparam_nested_block() {
+    assert_snapshot!(inspect("
+        def test(&block)
+          proc do
+            block = proc { 3 }
+            blk = block
+            blk.call
+          end.call
+        end
+
+        test { 1 }
+        test { 1 }
+    "), @"3");
+}
+
+#[test]
+fn test_setblockparam_side_exit() {
+    // This pattern side exits because `block.call` goes through
+    // getblockparamproxy's modified-block-parameter case.
+    eval("
+        def test(&block)
+          block = proc { 3 }
+          block.call
+        end
+        test { 1 }
+    ");
+    assert_contains_opcode("test", YARVINSN_setblockparam);
+    assert_snapshot!(inspect("test { 1 }"), @"3");
+}
+
+#[test]
 fn test_getblockparam_proxy_side_exit_restores_block_local() {
     eval("
         def test(&block)
