@@ -3412,7 +3412,10 @@ pub mod hir_build_tests {
           v14:NilClass = Const Value(nil)
           SetLocal :block, l0, EP@3, v14
           v18:CPtr = GetEP 0
-          MarkBlockParamModified v18
+          v19:CInt64 = LoadField v18, :_env_data_index_flags@0x1001
+          v20:CInt64[512] = Const CInt64(512)
+          v21:CInt64 = IntOr v19, v20
+          StoreField v18, :_env_data_index_flags@0x1001, v21
           CheckInterrupts
           Return v14
         ");
@@ -3441,7 +3444,10 @@ pub mod hir_build_tests {
           v10:NilClass = Const Value(nil)
           SetLocal :block, l1, EP@3, v10
           v14:CPtr = GetEP 1
-          MarkBlockParamModified v14
+          v15:CInt64 = LoadField v14, :_env_data_index_flags@0x1000
+          v16:CInt64[512] = Const CInt64(512)
+          v17:CInt64 = IntOr v15, v16
+          StoreField v14, :_env_data_index_flags@0x1000, v17
           CheckInterrupts
           Return v10
         ");

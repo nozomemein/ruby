@@ -889,8 +889,6 @@ pub enum Insn {
     /// Check whether VM_FRAME_FLAG_MODIFIED_BLOCK_PARAM is set in the environment flags.
     /// Returns CBool (0/1).
     IsBlockParamModified { ep: InsnId },
-    /// Mark the block parameter as modified in the environment flags.
-    MarkBlockParamModified { ep: InsnId },
     /// Get the block parameter as a Proc.
     GetBlockParam { level: u32, ep_offset: u32, state: InsnId },
     /// Set a local variable in a higher scope or the heap
@@ -1042,6 +1040,7 @@ pub enum Insn {
     FixnumAnd  { left: InsnId, right: InsnId },
     FixnumOr   { left: InsnId, right: InsnId },
     FixnumXor  { left: InsnId, right: InsnId },
+    IntOr      { left: InsnId, right: InsnId },
     FixnumLShift { left: InsnId, right: InsnId, state: InsnId },
     FixnumRShift { left: InsnId, right: InsnId },
 
@@ -1116,9 +1115,6 @@ macro_rules! for_each_operand_impl {
                 $visit_one!(lep);
             }
             Insn::IsBlockParamModified { ep } => {
-                $visit_one!(ep);
-            }
-            Insn::MarkBlockParamModified { ep } => {
                 $visit_one!(ep);
             }
             Insn::CheckMatch { target, pattern, state, .. } => {
@@ -1247,6 +1243,7 @@ macro_rules! for_each_operand_impl {
             | Insn::FixnumAnd { left, right }
             | Insn::FixnumOr { left, right }
             | Insn::FixnumXor { left, right }
+            | Insn::IntOr { left, right }
             | Insn::FixnumRShift { left, right }
             | Insn::IsBitEqual { left, right }
             | Insn::IsBitNotEqual { left, right } => {
@@ -1394,7 +1391,7 @@ impl Insn {
             | Insn::IfTrue { .. } | Insn::IfFalse { .. } | Insn::EntryPoint { .. } | Insn::Return { .. }
             | Insn::PatchPoint { .. } | Insn::SetIvar { .. } | Insn::SetClassVar { .. } | Insn::ArrayExtend { .. }
             | Insn::ArrayPush { .. } | Insn::SideExit { .. } | Insn::SetGlobal { .. }
-            | Insn::SetLocal { .. } | Insn::MarkBlockParamModified { .. } | Insn::Throw { .. } | Insn::IncrCounter(_) | Insn::IncrCounterPtr { .. }
+            | Insn::SetLocal { .. } | Insn::Throw { .. } | Insn::IncrCounter(_) | Insn::IncrCounterPtr { .. }
             | Insn::CheckInterrupts { .. } | Insn::BreakPoint
             | Insn::StoreField { .. } | Insn::WriteBarrier { .. } | Insn::HashAset { .. }
             | Insn::ArrayAset { .. } => false,
@@ -1531,7 +1528,6 @@ impl Insn {
             // This is why WriteBarrier writes to the "Memory" effect. We do not yet have a more granular specialization for flags
             Insn::WriteBarrier { .. } => Effect::read_write(abstract_heaps::Allocator, abstract_heaps::Allocator.union(abstract_heaps::Memory)),
             Insn::SetLocal { .. } => effects::Any,
-            Insn::MarkBlockParamModified { .. } => effects::Any,
             Insn::GetSpecialSymbol { .. } => effects::Any,
             Insn::GetSpecialNumber { .. } => effects::Any,
             Insn::GetClassVar { .. } => effects::Any,
@@ -1583,6 +1579,7 @@ impl Insn {
             Insn::FixnumAnd { .. } => effects::Empty,
             Insn::FixnumOr { .. } => effects::Empty,
             Insn::FixnumXor { .. } => effects::Empty,
+            Insn::IntOr { .. } => effects::Empty,
             Insn::FixnumLShift { .. } => effects::Empty,
             Insn::FixnumRShift { .. } => effects::Empty,
             Insn::ObjToString { .. } => effects::Any,
@@ -1960,6 +1957,7 @@ impl<'a> std::fmt::Display for InsnPrinter<'a> {
             Insn::FixnumAnd  { left, right, .. } => { write!(f, "FixnumAnd {left}, {right}") },
             Insn::FixnumOr   { left, right, .. } => { write!(f, "FixnumOr {left}, {right}") },
             Insn::FixnumXor  { left, right, .. } => { write!(f, "FixnumXor {left}, {right}") },
+            Insn::IntOr      { left, right } => { write!(f, "IntOr {left}, {right}") },
             Insn::FixnumLShift { left, right, .. } => { write!(f, "FixnumLShift {left}, {right}") },
             Insn::FixnumRShift { left, right, .. } => { write!(f, "FixnumRShift {left}, {right}") },
             Insn::GuardType { val, guard_type, .. } => { write!(f, "GuardType {val}, {}", guard_type.print(self.ptr_map)) },
@@ -2072,7 +2070,6 @@ impl<'a> std::fmt::Display for InsnPrinter<'a> {
                 let name = get_local_var_name_for_printer(self.iseq, level, ep_offset).map_or(String::new(), |x| format!("{x}, "));
                 write!(f, "SetLocal {name}l{level}, EP@{ep_offset}, {val}")
             },
-            &Insn::MarkBlockParamModified { ep } => write!(f, "MarkBlockParamModified {ep}"),
             Insn::GetSpecialSymbol { symbol_type, .. } => write!(f, "GetSpecialSymbol {symbol_type:?}"),
             Insn::GetSpecialNumber { nth, .. } => write!(f, "GetSpecialNumber {nth}"),
             Insn::GetClassVar { id, .. } => write!(f, "GetClassVar :{}", id.contents_lossy()),
@@ -2731,7 +2728,6 @@ impl Function {
             &IsBlockGiven { lep } => IsBlockGiven { lep: find!(lep) },
             &IsBlockParamModified { ep } => IsBlockParamModified { ep: find!(ep) },
             &GetBlockParam { level, ep_offset, state } => GetBlockParam { level, ep_offset, state: find!(state) },
-            &MarkBlockParamModified { ep } => MarkBlockParamModified { ep: find!(ep) },
             &FixnumAdd { left, right, state } => FixnumAdd { left: find!(left), right: find!(right), state },
             &FixnumSub { left, right, state } => FixnumSub { left: find!(left), right: find!(right), state },
             &FixnumMult { left, right, state } => FixnumMult { left: find!(left), right: find!(right), state },
@@ -2746,6 +2742,7 @@ impl Function {
             &FixnumAnd { left, right } => FixnumAnd { left: find!(left), right: find!(right) },
             &FixnumOr { left, right } => FixnumOr { left: find!(left), right: find!(right) },
             &FixnumXor { left, right } => FixnumXor { left: find!(left), right: find!(right) },
+            &IntOr { left, right } => IntOr { left: find!(left), right: find!(right) },
             &FixnumLShift { left, right, state } => FixnumLShift { left: find!(left), right: find!(right), state },
             &FixnumRShift { left, right } => FixnumRShift { left: find!(left), right: find!(right) },
             &ObjToString { val, cd, state } => ObjToString {
@@ -2918,7 +2915,7 @@ impl Function {
             Insn::SetGlobal { .. } | Insn::Jump(_) | Insn::Entries { .. } | Insn::EntryPoint { .. }
             | Insn::IfTrue { .. } | Insn::IfFalse { .. } | Insn::Return { .. } | Insn::Throw { .. }
             | Insn::PatchPoint { .. } | Insn::SetIvar { .. } | Insn::SetClassVar { .. } | Insn::ArrayExtend { .. }
-            | Insn::ArrayPush { .. } | Insn::SideExit { .. } | Insn::SetLocal { .. } | Insn::MarkBlockParamModified { .. }
+            | Insn::ArrayPush { .. } | Insn::SideExit { .. } | Insn::SetLocal { .. }
             | Insn::IncrCounter(_) | Insn::IncrCounterPtr { .. }
             | Insn::CheckInterrupts { .. } | Insn::BreakPoint
             | Insn::StoreField { .. } | Insn::WriteBarrier { .. } | Insn::HashAset { .. } | Insn::ArrayAset { .. } =>
@@ -3001,6 +2998,7 @@ impl Function {
             Insn::FixnumAnd  { .. } => types::Fixnum,
             Insn::FixnumOr   { .. } => types::Fixnum,
             Insn::FixnumXor  { .. } => types::Fixnum,
+            Insn::IntOr { left, .. } => self.type_of(*left).unspecialized(),
             Insn::FixnumLShift { .. } => types::Fixnum,
             Insn::FixnumRShift { .. } => types::Fixnum,
             Insn::PutSpecialObject { .. } => types::BasicObject,
@@ -6022,7 +6020,6 @@ impl Function {
             | Insn::GetSpecialNumber { .. }
             | Insn::GetSpecialSymbol { .. }
             | Insn::GetBlockParam { .. }
-            | Insn::MarkBlockParamModified { .. }
             | Insn::StoreField { .. } => {
                 Ok(())
             }
@@ -6176,6 +6173,14 @@ impl Function {
                     Ok(())
                 } else {
                     Err(ValidationError::MiscValidationError(insn_id, "IsBitEqual can only compare CInt/CInt or RubyValue/RubyValue".to_string()))
+                }
+            }
+            Insn::IntOr { left, right } => {
+                if self.is_a(left, types::CInt) && self.is_a(right, types::CInt) {
+                    // TODO: Check that int sizes match
+                    Ok(())
+                } else {
+                    Err(ValidationError::MiscValidationError(insn_id, "IntOr can only combine CInt/CInt".to_string()))
                 }
             }
             Insn::BoxBool { val }
@@ -7460,7 +7465,22 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
                         state.setlocal(ep_offset, val);
                     }
                     let ep = fun.push_insn(block, Insn::GetEP { level });
-                    fun.push_insn(block, Insn::MarkBlockParamModified { ep });
+                    let flags = fun.push_insn(block, Insn::LoadField {
+                        recv: ep,
+                        id: ID!(_env_data_index_flags),
+                        offset: SIZEOF_VALUE_I32 * (VM_ENV_DATA_INDEX_FLAGS as i32),
+                        return_type: types::CInt64,
+                    });
+                    let modified_flag = fun.push_insn(block, Insn::Const {
+                        val: Const::CInt64(VM_FRAME_FLAG_MODIFIED_BLOCK_PARAM.into()),
+                    });
+                    let modified = fun.push_insn(block, Insn::IntOr { left: flags, right: modified_flag });
+                    fun.push_insn(block, Insn::StoreField {
+                        recv: ep,
+                        id: ID!(_env_data_index_flags),
+                        offset: SIZEOF_VALUE_I32 * (VM_ENV_DATA_INDEX_FLAGS as i32),
+                        val: modified,
+                    });
                 }
                 YARVINSN_getblockparamproxy => {
                     let level = get_arg(pc, 1).as_u32();

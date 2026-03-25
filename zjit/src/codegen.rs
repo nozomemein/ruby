@@ -636,6 +636,7 @@ fn gen_insn(cb: &mut CodeBlock, jit: &mut JITState, asm: &mut Assembler, functio
         Insn::FixnumAnd { left, right } => gen_fixnum_and(asm, opnd!(left), opnd!(right)),
         Insn::FixnumOr { left, right } => gen_fixnum_or(asm, opnd!(left), opnd!(right)),
         Insn::FixnumXor { left, right } => gen_fixnum_xor(asm, opnd!(left), opnd!(right)),
+        Insn::IntOr { left, right } => gen_int_or(asm, opnd!(left), opnd!(right)),
         &Insn::FixnumLShift { left, right, state } => {
             // We only create FixnumLShift when we know the shift amount statically and it's in [0,
             // 63].
@@ -684,7 +685,6 @@ fn gen_insn(cb: &mut CodeBlock, jit: &mut JITState, asm: &mut Assembler, functio
         &Insn::IsBlockParamModified { ep } => gen_is_block_param_modified(asm, opnd!(ep)),
         &Insn::GetBlockParam { ep_offset, level, state } => gen_getblockparam(jit, asm, ep_offset, level, &function.frame_state(state)),
         &Insn::SetLocal { val, ep_offset, level } => no_output!(gen_setlocal(asm, opnd!(val), function.type_of(val), ep_offset, level)),
-        &Insn::MarkBlockParamModified { ep } => no_output!(gen_mark_block_param_modified(asm, opnd!(ep))),
         Insn::GetConstant { klass, id, allow_nil, state } => gen_getconstant(jit, asm, opnd!(klass), *id, opnd!(allow_nil), &function.frame_state(*state)),
         Insn::GetConstantPath { ic, state } => gen_get_constant_path(jit, asm, *ic, &function.frame_state(*state)),
         Insn::GetClassVar { id, ic, state } => gen_getclassvar(jit, asm, *id, *ic, &function.frame_state(*state)),
@@ -844,14 +844,6 @@ fn gen_setlocal(asm: &mut Assembler, val: Opnd, val_type: Type, local_ep_offset:
         let local_index = -local_ep_offset;
         asm_ccall!(asm, rb_vm_env_write, ep, local_index.into(), val);
     }
-}
-
-/// Set VM_FRAME_FLAG_MODIFIED_BLOCK_PARAM on the given environment pointer.
-fn gen_mark_block_param_modified(asm: &mut Assembler, ep: Opnd) {
-    let flags = Opnd::mem(VALUE_BITS, ep, SIZEOF_VALUE_I32 * (VM_ENV_DATA_INDEX_FLAGS as i32));
-    let flags_val = asm.load(flags);
-    let modified = asm.or(flags_val, VM_FRAME_FLAG_MODIFIED_BLOCK_PARAM.into());
-    asm.store(flags, modified);
 }
 
 /// Returns 1 (as CBool) when VM_FRAME_FLAG_MODIFIED_BLOCK_PARAM is set; returns 0 otherwise.
@@ -2270,6 +2262,11 @@ fn gen_fixnum_and(asm: &mut Assembler, left: lir::Opnd, right: lir::Opnd) -> lir
 
 /// Compile Fixnum | Fixnum
 fn gen_fixnum_or(asm: &mut Assembler, left: lir::Opnd, right: lir::Opnd) -> lir::Opnd {
+    asm.or(left, right)
+}
+
+/// Compile C integer | C integer.
+fn gen_int_or(asm: &mut Assembler, left: lir::Opnd, right: lir::Opnd) -> lir::Opnd {
     asm.or(left, right)
 }
 
