@@ -443,12 +443,12 @@ fn test_setblockparam() {
         test { 1 }
     ");
     assert_contains_opcode("test", YARVINSN_setblockparam);
-    assert_snapshot!(inspect("test { 1 }"), @"3");
+    assert_snapshot!(assert_compiles("test { 1 }"), @"3");
 }
 
 #[test]
 fn test_setblockparam_nested_block() {
-    assert_snapshot!(inspect("
+    eval("
         def test(&block)
           proc do
             block = proc { 3 }
@@ -456,10 +456,9 @@ fn test_setblockparam_nested_block() {
             blk.call
           end.call
         end
-
         test { 1 }
-        test { 1 }
-    "), @"3");
+    ");
+    assert_snapshot!(assert_compiles("test { 1 }"), @"3");
 }
 
 #[test]

@@ -6176,12 +6176,9 @@ impl Function {
                 }
             }
             Insn::IntOr { left, right } => {
-                if self.is_a(left, types::CInt) && self.is_a(right, types::CInt) {
-                    // TODO: Check that int sizes match
-                    Ok(())
-                } else {
-                    Err(ValidationError::MiscValidationError(insn_id, "IntOr can only combine CInt/CInt".to_string()))
-                }
+                // TODO: Expand this to other matching C integer sizes when we need them.
+                self.assert_subtype(insn_id, left, types::CInt64)?;
+                self.assert_subtype(insn_id, right, types::CInt64)
             }
             Insn::BoxBool { val }
             | Insn::IfTrue { val, .. }
