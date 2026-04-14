@@ -654,6 +654,24 @@ fn test_send_with_local_written_by_blockiseq() {
 }
 
 #[test]
+fn test_no_ep_escape_patch_point_after_send_does_not_repeat_send() {
+    eval(r#"
+        $send_count = 0
+
+        def test
+          captured = nil
+          tap do |_|
+            $send_count += 1
+            -> { captured } if $send_count == 2
+          end
+          $send_count
+        end
+    "#);
+    assert_contains_opcode("test", YARVINSN_send);
+    assert_snapshot!(assert_compiles_allowing_exits("[test, test, test]"), @"[1, 2, 3]");
+}
+
+#[test]
 fn test_send_without_block() {
     assert_snapshot!(inspect("
         def foo = 1
