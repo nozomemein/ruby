@@ -7754,12 +7754,13 @@ mod hir_opt_tests {
         set_call_threshold(3);
         eval(r#"
             class C
-              def foo_then_bar
+              def foo_then_many
                 @foo = 1
+                1000.times { |i| instance_variable_set(:"@v#{i}", i) }
                 @bar = 2
               end
 
-              def bar_then_foo
+              def many_then_foo
                 1000.times { |i| instance_variable_set(:"@v#{i}", i) }
                 @bar = 3
                 @foo = 4
@@ -7769,14 +7770,14 @@ mod hir_opt_tests {
             end
 
             O1 = C.new
-            O1.foo_then_bar
+            O1.foo_then_many
             O2 = C.new
-            O2.bar_then_foo
+            O2.many_then_foo
             O1.foo
             O2.foo
         "#);
         assert_snapshot!(hir_string_proc("C.instance_method(:foo)"), @"
-        fn foo@<compiled>:14:
+        fn foo@<compiled>:15:
         bb1():
           EntryPoint interpreter
           v1:BasicObject = LoadSelf
@@ -7828,12 +7829,13 @@ mod hir_opt_tests {
         set_call_threshold(6);
         eval(r#"
             class C
-              def foo_then_bar
+              def foo_then_many
                 @foo = 1
+                1000.times { |i| instance_variable_set(:"@v#{i}", i) }
                 @bar = 2
               end
 
-              def bar_then_foo
+              def many_then_foo
                 1000.times { |i| instance_variable_set(:"@v#{i}", i) }
                 @bar = 3
                 @foo = 4
@@ -7843,9 +7845,9 @@ mod hir_opt_tests {
             end
 
             O1 = C.new
-            O1.foo_then_bar
+            O1.foo_then_many
             O2 = C.new
-            O2.bar_then_foo
+            O2.many_then_foo
             O1.foo
             O1.foo
             O1.foo
@@ -7853,7 +7855,7 @@ mod hir_opt_tests {
             O2.foo
         "#);
         assert_snapshot!(hir_string_proc("C.instance_method(:foo)"), @"
-        fn foo@<compiled>:14:
+        fn foo@<compiled>:15:
         bb1():
           EntryPoint interpreter
           v1:BasicObject = LoadSelf
