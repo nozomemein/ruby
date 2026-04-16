@@ -4678,6 +4678,17 @@ impl Function {
         self.push_insn(block, Insn::PatchPoint { invariant: Invariant::MethodRedefined { klass: recv_class, method: method_id, cme }, state });
     }
 
+    /// Side exit back to the state after a block-backed send.
+    /// Using the pre-send snapshot would re-execute the send in the interpreter.
+    fn gen_post_send_no_ep_escape_patch_point(&mut self, block: BlockId, state: &FrameState, insn_idx: u32) {
+        let iseq = state.iseq;
+        let mut reload_state = state.clone();
+        reload_state.insn_idx = insn_idx as usize;
+        reload_state.pc = unsafe { rb_iseq_pc_at_idx(iseq, insn_idx) };
+        let reload_exit_id = self.push_insn(block, Insn::Snapshot { state: reload_state.without_locals() });
+        self.push_insn(block, Insn::PatchPoint { invariant: Invariant::NoEPEscape(iseq), state: reload_exit_id });
+    }
+
     fn count_not_inlined_cfunc(&mut self, block: BlockId, cme: *const rb_callable_method_entry_t) {
         let owner = unsafe { (*cme).owner };
         let called_id = unsafe { (*cme).called_id };
@@ -7930,13 +7941,7 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
                         // TODO: Avoid reloading locals that are not referenced by the blockiseq
                         // or not used after this. Max thinks we could eventually DCE them.
                         if !ep_escaped && !state.locals.is_empty() {
-                            // Side exit back to the state after the block-backed send.
-                            // Using the pre-send snapshot would re-execute the send in the interpreter.
-                            let mut reload_state = state.clone();
-                            reload_state.insn_idx = insn_idx as usize;
-                            reload_state.pc = unsafe { rb_iseq_pc_at_idx(iseq, insn_idx) };
-                            let reload_exit_id = fun.push_insn(block, Insn::Snapshot { state: reload_state.without_locals() });
-                            fun.push_insn(block, Insn::PatchPoint { invariant: Invariant::NoEPEscape(iseq), state: reload_exit_id });
+                            fun.gen_post_send_no_ep_escape_patch_point(block, &state, insn_idx);
                         }
                         let mut base: Option<InsnId> = None;
                         for local_idx in 0..state.locals.len() {
@@ -7982,13 +7987,7 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
                     if !blockiseq.is_null() {
                         // Reload locals that may have been modified by the blockiseq.
                         if !ep_escaped && !state.locals.is_empty() {
-                            // Side exit back to the state after the block-backed send.
-                            // Using the pre-send snapshot would re-execute the send in the interpreter.
-                            let mut reload_state = state.clone();
-                            reload_state.insn_idx = insn_idx as usize;
-                            reload_state.pc = unsafe { rb_iseq_pc_at_idx(iseq, insn_idx) };
-                            let reload_exit_id = fun.push_insn(block, Insn::Snapshot { state: reload_state.without_locals() });
-                            fun.push_insn(block, Insn::PatchPoint { invariant: Invariant::NoEPEscape(iseq), state: reload_exit_id });
+                            fun.gen_post_send_no_ep_escape_patch_point(block, &state, insn_idx);
                         }
                         let mut base: Option<InsnId> = None;
                         for local_idx in 0..state.locals.len() {
@@ -8035,13 +8034,7 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
                         // TODO: Avoid reloading locals that are not referenced by the blockiseq
                         // or not used after this. Max thinks we could eventually DCE them.
                         if !ep_escaped && !state.locals.is_empty() {
-                            // Side exit back to the state after the block-backed send.
-                            // Using the pre-send snapshot would re-execute the send in the interpreter.
-                            let mut reload_state = state.clone();
-                            reload_state.insn_idx = insn_idx as usize;
-                            reload_state.pc = unsafe { rb_iseq_pc_at_idx(iseq, insn_idx) };
-                            let reload_exit_id = fun.push_insn(block, Insn::Snapshot { state: reload_state.without_locals() });
-                            fun.push_insn(block, Insn::PatchPoint { invariant: Invariant::NoEPEscape(iseq), state: reload_exit_id });
+                            fun.gen_post_send_no_ep_escape_patch_point(block, &state, insn_idx);
                         }
                         let mut base: Option<InsnId> = None;
                         for local_idx in 0..state.locals.len() {
@@ -8088,13 +8081,7 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
                         // TODO: Avoid reloading locals that are not referenced by the blockiseq
                         // or not used after this. Max thinks we could eventually DCE them.
                         if !ep_escaped && !state.locals.is_empty() {
-                            // Side exit back to the state after the block-backed send.
-                            // Using the pre-send snapshot would re-execute the send in the interpreter.
-                            let mut reload_state = state.clone();
-                            reload_state.insn_idx = insn_idx as usize;
-                            reload_state.pc = unsafe { rb_iseq_pc_at_idx(iseq, insn_idx) };
-                            let reload_exit_id = fun.push_insn(block, Insn::Snapshot { state: reload_state.without_locals() });
-                            fun.push_insn(block, Insn::PatchPoint { invariant: Invariant::NoEPEscape(iseq), state: reload_exit_id });
+                            fun.gen_post_send_no_ep_escape_patch_point(block, &state, insn_idx);
                         }
                         let mut base: Option<InsnId> = None;
                         for local_idx in 0..state.locals.len() {
