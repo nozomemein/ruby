@@ -1020,7 +1020,7 @@ module Prism
             on_stmts_add(on_stmts_new, on_void_stmt)
           else
             body = node.statements.body
-            body.unshift(nil) if void_stmt?(location, node.statements.body[0].location, allow_newline)
+            body = [nil, *body] if void_stmt?(location, node.statements.body[0].location, allow_newline)
 
             bounds(node.statements.location)
             visit_statements_node_body(body)
@@ -1037,7 +1037,7 @@ module Prism
                 [nil]
               else
                 body = else_clause_node.statements.body
-                body.unshift(nil) if void_stmt?(else_clause_node.else_keyword_loc, else_clause_node.statements.body[0].location, allow_newline)
+                body = [nil, *body] if void_stmt?(else_clause_node.else_keyword_loc, else_clause_node.statements.body[0].location, allow_newline)
                 body
               end
 
@@ -1059,7 +1059,7 @@ module Prism
           on_bodystmt(visit_statements_node_body([nil]), nil, nil, nil)
         when StatementsNode
           body = [*node.body]
-          body.unshift(nil) if void_stmt?(location, body[0].location, allow_newline)
+          body = [nil, *body] if void_stmt?(location, body[0].location, allow_newline)
           stmts = visit_statements_node_body(body)
 
           bounds(node.body.first.location)
@@ -1108,7 +1108,7 @@ module Prism
             braces ? stmts : on_bodystmt(stmts, nil, nil, nil)
           when StatementsNode
             stmts = node.body.body
-            stmts.unshift(nil) if void_stmt?(node.parameters&.location || node.opening_loc, node.body.location, false)
+            stmts = [nil, *stmts] if void_stmt?(node.parameters&.location || node.opening_loc, node.body.location, false)
             stmts = visit_statements_node_body(stmts)
 
             bounds(node.body.location)
@@ -2035,7 +2035,7 @@ module Prism
             [nil]
           else
             body = node.statements.body
-            body.unshift(nil) if void_stmt?(node.else_keyword_loc, node.statements.body[0].location, false)
+            body = [nil, *body] if void_stmt?(node.else_keyword_loc, node.statements.body[0].location, false)
             body
           end
 
@@ -2090,7 +2090,7 @@ module Prism
             [nil]
           else
             body = node.statements.body
-            body.unshift(nil) if void_stmt?(node.ensure_keyword_loc, body[0].location, false)
+            body = [nil, *body] if void_stmt?(node.ensure_keyword_loc, body[0].location, false)
             body
           end
 
@@ -2873,7 +2873,7 @@ module Prism
             braces ? stmts : on_bodystmt(stmts, nil, nil, nil)
           when StatementsNode
             stmts = node.body.body
-            stmts.unshift(nil) if void_stmt?(node.parameters&.location || node.opening_loc, node.body.location, false)
+            stmts = [nil, *stmts] if void_stmt?(node.parameters&.location || node.opening_loc, node.body.location, false)
             stmts = visit_statements_node_body(stmts)
 
             bounds(node.body.location)
@@ -3367,7 +3367,7 @@ module Prism
       # The top-level program node.
       def visit_program_node(node)
         body = node.statements.body
-        body << nil if body.empty?
+        body = [nil] if body.empty?
         statements = visit_statements_node_body(body)
 
         bounds(node.location)
@@ -4089,7 +4089,7 @@ module Prism
 
       # Lazily initialize the parse result.
       def result
-        @result ||= Prism.parse(source, partial_script: true, version: "current")
+        @result ||= Prism.parse(source, partial_script: true, version: "current", freeze: true)
       end
 
       def line_and_column_cache
