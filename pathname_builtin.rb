@@ -1086,12 +1086,29 @@ class Pathname    # * File *
   #   pn.atime            # => 2026-03-31 11:51:10.1210092 -0500
   #   Dir.delete(dirpath)
   #
+  # See {File System Timestamps}[rdoc-ref:file/timestamps.md].
   def atime() File.atime(@path) end
 
-  # Returns the birth time for the file.
-  # If the platform doesn't have birthtime, raises NotImplementedError.
+  # call-seq:
+  #   birthtime -> new_time
   #
-  # See File.birthtime.
+  # Returns a new Time object containing the create time of the entry
+  # represented by +self+:
+  #
+  #   filepath = 't.tmp'
+  #   pn = Pathname.new(filepath)
+  #   pn.birthtime   # Raises Errno::ENOENT: No such file or directory
+  #   file = File.open(filepath, 'w')
+  #   pn.birthtime   # => 2026-04-14 16:14:47.494846 -0500
+  #   file.birthtime # => 2026-04-14 16:14:47.494846 -0500
+  #   file.write('foo')
+  #   pn.birthtime   # => 2026-04-14 16:14:47.494846 -0500
+  #   file.close
+  #   pn.birthtime   # => 2026-04-14 16:14:47.494846 -0500
+  #   File.delete(filepath)
+  #   pn.birthtime   # Raises Errno::ENOENT: No such file or directory
+  #
+  # See {File System Timestamps}[rdoc-ref:file/timestamps.md].
   def birthtime() File.birthtime(@path) end
 
   # See <tt>File.ctime</tt>.  Returns last (directory entry, not file) change time.

@@ -1122,6 +1122,7 @@ static VALUE statx_birthtime(const rb_io_stat_data *st);
  *   file.close
  *   File.delete(filepath)
  *
+ * See {File System Timestamps}[rdoc-ref:file/timestamps.md].
  */
 
 static VALUE
@@ -1169,24 +1170,22 @@ rb_stat_ctime(VALUE self)
 #if defined(HAVE_STAT_BIRTHTIME)
 /*
  *  call-seq:
- *     stat.birthtime  ->  time
+ *    birthtime -> new_time
  *
- *  Returns the birth time for <i>stat</i>.
+ * Returns a new Time object containing the create time
+ * of the object represented by +self+
+ * at the time +self+ was created;
+ * see {Snapshot}[rdoc-ref:File::Stat@Snapshot]:
  *
- *  If the platform doesn't have birthtime, raises NotImplementedError.
+ *   filename = 't.tmp'
+ *   stat = File::Stat.new(filename) # Raises Errno::ENOENT: No such file or directory
+ *   File.write(filename, 'foo')
+ *   stat = File::Stat.new(filename)
+ *   stat.birthtime # => 2026-04-14 10:41:55.5146554 -0500
+ *   File.delete(filename)
+ *   stat.birthtime # => 2026-04-14 10:41:55.5146554 -0500
  *
- *     File.write("testfile", "foo")
- *     sleep 10
- *     File.write("testfile", "bar")
- *     sleep 10
- *     File.chmod(0644, "testfile")
- *     sleep 10
- *     File.read("testfile")
- *     File.stat("testfile").birthtime   #=> 2014-02-24 11:19:17 +0900
- *     File.stat("testfile").mtime       #=> 2014-02-24 11:19:27 +0900
- *     File.stat("testfile").ctime       #=> 2014-02-24 11:19:37 +0900
- *     File.stat("testfile").atime       #=> 2014-02-24 11:19:47 +0900
- *
+ * See {File System Timestamps}[rdoc-ref:file/timestamps.md].
  */
 
 static VALUE
@@ -2484,6 +2483,7 @@ rb_file_s_ftype(VALUE klass, VALUE fname)
  *   File.atime(File.new('README.md')) # => 2026-03-31 11:15:27.8215934 -0500
  *   File.atime(Dir.new('.'))          # => 2026-03-31 12:39:45.5910591 -0500
  *
+ * See {File System Timestamps}[rdoc-ref:file/timestamps.md].
  */
 
 static VALUE
@@ -2516,6 +2516,7 @@ rb_file_s_atime(VALUE klass, VALUE fname)
  *   file.close
  *   File.delete(filename)
  *
+ * See {File System Timestamps}[rdoc-ref:file/timestamps.md].
  */
 
 static VALUE
@@ -2637,16 +2638,21 @@ rb_file_ctime(VALUE obj)
 #if defined(HAVE_STAT_BIRTHTIME)
 /*
  *  call-seq:
- *     File.birthtime(file_name)  -> time
+ *     File.birthtime(entry_path) -> new_time
  *
- *  Returns the birth time for the named file.
+ * Returns a new Time object containing the create time
+ * of the entry at the given +path+:
  *
- *  _file_name_ can be an IO object.
+ *   path = 't.tmp'
+ *   File.birthtime(path) # Raises Errno::ENOENT: No such file or directory
+ *   File.write(path, 'foo')
+ *   File.birthtime(path) # => 2026-04-14 11:10:43.2891695 -0500
+ *   File.write(path, 'bar')
+ *   File.birthtime(path) # => 2026-04-14 11:10:43.2891695 -0500
+ *   File.delete(path)
+ *   File.birthtime(path) # Raises Errno::ENOENT: No such file or directory
  *
- *     File.birthtime("testfile")   #=> Wed Apr 09 08:53:13 CDT 2003
- *
- *  If the platform doesn't have birthtime, raises NotImplementedError.
- *
+ * See {File System Timestamps}[rdoc-ref:file/timestamps.md].
  */
 
 VALUE
@@ -2668,14 +2674,21 @@ rb_file_s_birthtime(VALUE klass, VALUE fname)
 #if defined(HAVE_STAT_BIRTHTIME)
 /*
  *  call-seq:
- *     file.birthtime  ->  time
+ *    birthtime -> new_time
  *
- *  Returns the birth time for <i>file</i>.
+ *  Returns a new Time object containing the create time for +self+:
  *
- *     File.new("testfile").birthtime   #=> Wed Apr 09 08:53:14 CDT 2003
+ *    filepath = 't.tmp'
+ *    File.write(filepath, 'foo')
+ *    file = File.new(filepath)
+ *    file.birthtime # => 2026-04-14 15:53:45.002656 -0500
+ *    File.write(filepath, 'bar')
+ *    file.birthtime # => 2026-04-14 15:53:45.002656 -0500
+ *    file.close
+ *    File.delete(filepath)
+ *    file.birthtime # Raises IOError: closed stream
  *
- *  If the platform doesn't have birthtime, raises NotImplementedError.
- *
+ *  See {File System Timestamps}[rdoc-ref:file/timestamps.md].
  */
 
 static VALUE
