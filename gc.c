@@ -384,7 +384,7 @@ rb_gc_rebuild_shape(VALUE obj, size_t heap_id)
 {
     RUBY_ASSERT(RB_TYPE_P(obj, T_OBJECT));
 
-    return (uint32_t)rb_shape_transition_heap(obj, heap_id);
+    return (uint32_t)rb_obj_shape_transition_heap(obj, heap_id);
 }
 
 void rb_vm_update_references(void *ptr);
@@ -2163,7 +2163,7 @@ object_id0(VALUE obj)
         return object_id_get(obj, shape_id);
     }
 
-    shape_id_t object_id_shape_id = rb_shape_transition_object_id(obj);
+    shape_id_t object_id_shape_id = rb_obj_shape_transition_object_id(obj);
 
     id = generate_next_object_id();
     rb_obj_field_set(obj, object_id_shape_id, 0, id);
@@ -2705,10 +2705,10 @@ count_objects_i(VALUE obj, void *d)
  *
  *  It returns a hash, such as:
  *	{
- *	  :TOTAL=>10000,
- *	  :FREE=>3011,
- *	  :T_OBJECT=>6,
- *	  :T_CLASS=>404,
+ *	  TOTAL: 10000,
+ *	  FREE: 3011,
+ *	  T_OBJECT: 6,
+ *	  T_CLASS: 404,
  *	  # ...
  *	}
  *
@@ -2726,7 +2726,7 @@ count_objects_i(VALUE obj, void *d)
  *    h = {}
  *    ObjectSpace.count_objects(h)
  *    puts h
- *    # => { :TOTAL=>10000, :T_CLASS=>158280, :T_MODULE=>20672, :T_STRING=>527249 }
+ *    # => { TOTAL: 10000, T_CLASS: 158280, T_MODULE: 20672, T_STRING: 527249 }
  *
  *  This method is only expected to work on C Ruby.
  *
@@ -3480,17 +3480,6 @@ rb_gc_mark_children(void *objspace, VALUE obj)
                 gc_mark_internal(ptr[i]);
             }
         }
-
-        attr_index_t fields_count = (attr_index_t)len;
-        if (fields_count) {
-            VALUE klass = RBASIC_CLASS(obj);
-
-            // Increment max_iv_count if applicable, used to determine size pool allocation
-            if (RCLASS_MAX_IV_COUNT(klass) < fields_count) {
-                RCLASS_SET_MAX_IV_COUNT(klass, fields_count);
-            }
-        }
-
         break;
       }
 

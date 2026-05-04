@@ -46,6 +46,7 @@ struct rb_classext_struct {
     const rb_box_t *box;
     VALUE super;
     VALUE fields_obj; // Fields are either ivar or other internal properties stored inline
+    VALUE classpath;
     struct rb_id_table *m_tbl;
     struct rb_id_table *const_tbl;
     struct rb_id_table *callable_m_tbl;
@@ -91,7 +92,7 @@ struct rb_classext_struct {
     bool iclass_is_origin : 1;
     bool iclass_origin_shared_mtbl : 1;
     bool superclasses_with_self : 1;
-    VALUE classpath;
+    bool expect_no_ivar : 1;
 };
 typedef struct rb_classext_struct rb_classext_t;
 
@@ -514,7 +515,7 @@ RCLASS_WRITABLE_ENSURE_FIELDS_OBJ(VALUE obj)
     RUBY_ASSERT(RB_TYPE_P(obj, RUBY_T_CLASS) || RB_TYPE_P(obj, RUBY_T_MODULE));
     rb_classext_t *ext = RCLASS_EXT_WRITABLE(obj);
     if (!ext->fields_obj) {
-        RB_OBJ_WRITE(obj, &ext->fields_obj, rb_imemo_fields_new(obj, 1, true));
+        RB_OBJ_WRITE(obj, &ext->fields_obj, rb_imemo_fields_new(obj, ROOT_SHAPE_ID, true));
     }
     return ext->fields_obj;
 }
@@ -731,7 +732,22 @@ RCLASS_SET_ATTACHED_OBJECT(VALUE klass, VALUE attached_object)
 static inline void
 RCLASS_SET_MAX_IV_COUNT(VALUE klass, attr_index_t count)
 {
+    RUBY_ASSERT(klass != rb_cObject);
+    RUBY_ASSERT(klass != rb_cBasicObject);
+
     RCLASS_MAX_IV_COUNT(klass) = count;
+}
+
+static inline void
+RCLASS_SET_EXPECT_NO_IVAR(VALUE klass)
+{
+    RCLASS_EXT_PRIME(klass)->expect_no_ivar = true;
+}
+
+static inline bool
+RCLASS_EXPECT_NO_IVAR(VALUE klass)
+{
+    return RCLASS_EXT_PRIME(klass)->expect_no_ivar;
 }
 
 static inline void

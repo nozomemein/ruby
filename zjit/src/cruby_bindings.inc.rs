@@ -234,6 +234,7 @@ pub const VM_ENV_DATA_INDEX_SPECVAL: i32 = -1;
 pub const VM_ENV_DATA_INDEX_FLAGS: u32 = 0;
 pub const VM_BLOCK_HANDLER_NONE: u32 = 0;
 pub const SHAPE_ID_NUM_BITS: u32 = 32;
+pub const ZJIT_JIT_RETURN_POISON: i64 = -4981057192772781345;
 pub type rb_alloc_func_t = ::std::option::Option<unsafe extern "C" fn(klass: VALUE) -> VALUE>;
 pub const RUBY_Qfalse: ruby_special_consts = 0;
 pub const RUBY_Qnil: ruby_special_consts = 4;
@@ -1483,12 +1484,12 @@ pub const VM_ENV_FLAG_ISOLATED: vm_frame_env_flags = 16;
 pub type vm_frame_env_flags = u32;
 pub type attr_index_t = u16;
 pub type shape_id_t = u32;
-pub const SHAPE_ID_HEAP_INDEX_MASK: shape_id_fl_type = 16252928;
+pub const SHAPE_ID_HEAP_INDEX_MASK: shape_id_fl_type = 7864320;
+pub const SHAPE_ID_FL_TOO_COMPLEX: shape_id_fl_type = 8388608;
 pub const SHAPE_ID_FL_FROZEN: shape_id_fl_type = 16777216;
 pub const SHAPE_ID_FL_HAS_OBJECT_ID: shape_id_fl_type = 33554432;
-pub const SHAPE_ID_FL_TOO_COMPLEX: shape_id_fl_type = 67108864;
 pub const SHAPE_ID_FL_NON_CANONICAL_MASK: shape_id_fl_type = 50331648;
-pub const SHAPE_ID_FLAGS_MASK: shape_id_fl_type = 133693440;
+pub const SHAPE_ID_FLAGS_MASK: shape_id_fl_type = 66584576;
 pub type shape_id_fl_type = u32;
 pub const CONST_DEPRECATED: rb_const_flag_t = 256;
 pub const CONST_VISIBILITY_MASK: rb_const_flag_t = 255;
@@ -1919,8 +1920,6 @@ pub struct zjit_jit_frame {
     pub iseq: *const rb_iseq_t,
     pub materialize_block_code: bool,
 }
-pub const ZJIT_JIT_RETURN_POISON: zjit_poison_values = 2;
-pub type zjit_poison_values = u32;
 pub const ISEQ_BODY_OFFSET_PARAM: zjit_struct_offsets = 16;
 pub type zjit_struct_offsets = u32;
 pub const ROBJECT_OFFSET_AS_HEAP_FIELDS: jit_bindgen_constants = 16;
@@ -2098,9 +2097,9 @@ unsafe extern "C" {
     pub fn rb_obj_shape_id(obj: VALUE) -> shape_id_t;
     pub fn rb_shape_get_iv_index(shape_id: shape_id_t, id: ID, value: *mut attr_index_t) -> bool;
     pub fn rb_shape_transition_add_ivar_no_warnings(
-        klass: VALUE,
-        original_shape_id: shape_id_t,
+        shape_id: shape_id_t,
         id: ID,
+        klass: VALUE,
     ) -> shape_id_t;
     pub fn rb_const_lookup(klass: VALUE, id: ID) -> *mut rb_const_entry_t;
     pub fn rb_ivar_get_at_no_ractor_check(obj: VALUE, index: attr_index_t) -> VALUE;

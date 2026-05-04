@@ -11,6 +11,12 @@
 #   Pathname.new('lib')            # => #<Pathname:lib>
 #   Pathname.new('/usr/local/bin') # => #<Pathname:/usr/local/bin>
 #
+# == About the Examples
+#
+# Many examples here use these variables:
+#
+#  :include: doc/examples/files.rdoc
+#
 # == Convenience Methods
 #
 # The class provides *all* functionality from class File and module FileTest,
@@ -1040,8 +1046,63 @@ class Pathname    # * File *
     File.foreach(@path, ...)
   end
 
-  # See <tt>File.read</tt>.  Returns all data from the file, or the first +N+ bytes
-  # if specified.
+  # call-seq:
+  #   read(length = nil, offset = 0, **opts) -> string or nil
+  #
+  # Reads and returns some or all of the content of the file
+  # whose path is <tt>self.to_s</tt>.
+  #
+  # With no arguments given,
+  # reads in text mode and returns the entire content of the file:
+  #
+  #   Pathname.new('t.txt').read
+  #   # => "First line\nSecond line\n\nFourth line\nFifth line\n"
+  #   Pathname.new('t.ja').read
+  #   # => "こんにちは"
+  #   Pathname.new('t.dat').read
+  #   # => "\xFE\xFF\x99\x90\x99\x91\x99\x92\x99\x93\x99\x94"
+  #
+  # On Windows, text mode can terminate reading and leave bytes in the file unread
+  # when encountering certain special bytes.
+  # Consider using #binread if all bytes in the file should be read.
+  #
+  # With argument +length+ given, returns +length+ bytes if available:
+  #
+  #   Pathname.new('t.txt').read(7)
+  #   # => "First l"
+  #   Pathname.new('t.ja').read(7)
+  #   # => "\xE3\x81\x93\xE3\x82\x93\xE3"
+  #   Pathname.new('t.dat').read(7)
+  #   # => "\xFE\xFF\x99\x90\x99\x91\x99"
+  #
+  # Returns all bytes if +length+ is larger than the files size:
+  #
+  #   Pathname.new('t.txt').read(700)
+  #   # => "First line\r\nSecond line\r\n\r\nFourth line\r\nFifth line\r\n"
+  #   Pathname.new('t.ja').read(700)
+  #   # => "\xE3\x81\x93\xE3\x82\x93\xE3\x81\xAB\xE3\x81\xA1\xE3\x81\xAF"
+  #   Pathname.new('t.dat').read(700)
+  #   # => "\xFE\xFF\x99\x90\x99\x91\x99\x92\x99\x93\x99\x94"
+  #
+  # With arguments +length+ and +offset+ given,
+  # returns +length+ bytes if available, beginning at the given +offset+:
+  #
+  #   Pathname.new('t.txt').read(10, 2)
+  #   # => "rst line\r\n"
+  #   Pathname.new('t.ja').read(10, 2)
+  #   # => "\x93\xE3\x82\x93\xE3\x81\xAB\xE3\x81\xA1"
+  #   Pathname.new('t.dat').read(10, 2)
+  #   # => "\x99\x90\x99\x91\x99\x92\x99\x93\x99\x94"
+  #
+  # Returns +nil+ if +offset+ is past the end of the file:
+  #
+  #   Pathname.new('t.txt').read(10, 200) # => nil
+  #
+  # Optional keyword arguments +opts+ specify:
+  #
+  # - {Open Options}[rdoc-ref:IO@Open+Options].
+  # - {Encoding options}[rdoc-ref:encodings.rdoc@Encoding+Options].
+  #
   def read(...) File.read(@path, ...) end
 
   # See <tt>File.binread</tt>.  Returns all the bytes from the file, or the first +N+
@@ -1086,12 +1147,29 @@ class Pathname    # * File *
   #   pn.atime            # => 2026-03-31 11:51:10.1210092 -0500
   #   Dir.delete(dirpath)
   #
+  # See {File System Timestamps}[rdoc-ref:file/timestamps.md].
   def atime() File.atime(@path) end
 
-  # Returns the birth time for the file.
-  # If the platform doesn't have birthtime, raises NotImplementedError.
+  # call-seq:
+  #   birthtime -> new_time
   #
-  # See File.birthtime.
+  # Returns a new Time object containing the create time of the entry
+  # represented by +self+:
+  #
+  #   filepath = 't.tmp'
+  #   pn = Pathname.new(filepath)
+  #   pn.birthtime   # Raises Errno::ENOENT: No such file or directory
+  #   file = File.open(filepath, 'w')
+  #   pn.birthtime   # => 2026-04-14 16:14:47.494846 -0500
+  #   file.birthtime # => 2026-04-14 16:14:47.494846 -0500
+  #   file.write('foo')
+  #   pn.birthtime   # => 2026-04-14 16:14:47.494846 -0500
+  #   file.close
+  #   pn.birthtime   # => 2026-04-14 16:14:47.494846 -0500
+  #   File.delete(filepath)
+  #   pn.birthtime   # Raises Errno::ENOENT: No such file or directory
+  #
+  # See {File System Timestamps}[rdoc-ref:file/timestamps.md].
   def birthtime() File.birthtime(@path) end
 
   # See <tt>File.ctime</tt>.  Returns last (directory entry, not file) change time.
@@ -1159,7 +1237,40 @@ class Pathname    # * File *
   # See File.lutime.
   def lutime(atime, mtime) File.lutime(atime, mtime, @path) end
 
-  # See <tt>File.basename</tt>.  Returns the last component of the path.
+  # call-seq:
+  #   basename(path, suffix = '') -> new_pathname
+  #
+  # Returns a new \Pathname object containing all or part of the last entry
+  # of the path represented by +self+.
+  # Entries are delimited by the value of constant File::SEPARATOR
+  # and, if non-nil, the value of constant File::ALT_SEPARATOR.
+  #
+  # When +suffix+ is the empty string <tt>''</tt>, returns all of the last entry:
+  #
+  #   Pathname.new('foo/bar/baz/bat.txt').basename # => #<Pathname:bat.txt>
+  #   Pathname.new('foo/bar/baz').basename         # => #<Pathname:baz>
+  #
+  #   File::SEPARATOR                              # => "/"
+  #   Pathname.new('foo/bar.txt////').basename     # => #<Pathname:bar.txt>
+  #   File::ALT_SEPARATOR # => "\\"                # On Windows.
+  #   Pathname.new('foo/bar.txt//\\\\//').basename # => #<Pathname:bar.txt>
+  #
+  # When +suffix+ is <tt>'.*'</tt>,
+  # the last {filename extension}[https://en.wikipedia.org/wiki/Filename_extension],
+  # if any, is removed:
+  #
+  #   Pathname.new('foo/bar.txt').basename('.*')     # => #<Pathname:bar>
+  #   Pathname.new('foo/bar.txt.old').basename('.*') # => #<Pathname:bar.txt>
+  #   Pathname.new('foo/bar').basename('.*')         # => #<Pathname:bar>
+  #
+  # When +suffix+ is any string other than <tt>''</tt> or <tt>'.*'</tt>,
+  # the matching trailing substring, if any, is removed:
+  #
+  #   Pathname.new('foo/bar.txt').basename('.txt') # => #<Pathname:bar>
+  #   Pathname.new('foo/bar.txt').basename('txt')  # => #<Pathname:bar.>
+  #   Pathname.new('foo/bar.txt').basename('*')    # => #<Pathname:bar.txt>
+  #   Pathname.new('foo/bar.txt').basename('.')    # => #<Pathname:bar.txt>
+  #
   def basename(...) self.class.new(File.basename(@path, ...)) end
 
   # See <tt>File.dirname</tt>.  Returns all but the last component of the path.

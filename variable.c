@@ -1582,7 +1582,7 @@ static shape_id_t
 obj_transition_too_complex(VALUE obj, st_table *table)
 {
     RUBY_ASSERT(!rb_shape_obj_too_complex_p(obj));
-    shape_id_t shape_id = rb_shape_transition_complex(obj);
+    shape_id_t shape_id = rb_obj_shape_transition_complex(obj);
 
     switch (BUILTIN_TYPE(obj)) {
       case T_OBJECT:
@@ -1610,8 +1610,7 @@ obj_transition_too_complex(VALUE obj, st_table *table)
         break;
       default:
         {
-            VALUE fields_obj = rb_imemo_fields_new_complex_tbl(obj, table, RB_OBJ_SHAREABLE_P(obj));
-            RBASIC_SET_SHAPE_ID(fields_obj, shape_id);
+            VALUE fields_obj = rb_imemo_fields_new_complex_tbl(obj, shape_id, table, RB_OBJ_SHAREABLE_P(obj));
             rb_obj_replace_fields(obj, fields_obj);
         }
     }
@@ -1687,7 +1686,7 @@ rb_ivar_delete(VALUE obj, ID id, VALUE undef)
 
     shape_id_t old_shape_id = RBASIC_SHAPE_ID(fields_obj);
     shape_id_t removed_shape_id;
-    shape_id_t next_shape_id = rb_shape_transition_remove_ivar(fields_obj, id, &removed_shape_id);
+    shape_id_t next_shape_id = rb_obj_shape_transition_remove_ivar(fields_obj, id, &removed_shape_id);
 
     if (UNLIKELY(rb_shape_too_complex_p(next_shape_id))) {
         if (UNLIKELY(!rb_shape_too_complex_p(old_shape_id))) {
@@ -1794,27 +1793,31 @@ static VALUE
 imemo_fields_complex_from_obj(VALUE owner, VALUE source_fields_obj, shape_id_t shape_id)
 {
     attr_index_t len = source_fields_obj ? RSHAPE_LEN(RBASIC_SHAPE_ID(source_fields_obj)) : 0;
-    VALUE fields_obj = rb_imemo_fields_new_complex(owner, len + 1, RB_OBJ_SHAREABLE_P(owner));
+    VALUE fields_obj = rb_imemo_fields_new_complex(owner, shape_id, len + 1, RB_OBJ_SHAREABLE_P(owner));
 
     rb_field_foreach(source_fields_obj, imemo_fields_complex_from_obj_i, (st_data_t)fields_obj, false);
-    RBASIC_SET_SHAPE_ID(fields_obj, shape_id);
 
     return fields_obj;
 }
 
 static VALUE
-imemo_fields_copy_capa(VALUE owner, VALUE source_fields_obj, attr_index_t new_size)
+imemo_fields_copy_append(VALUE owner, VALUE source_fields_obj, shape_id_t current_shape_id, shape_id_t target_shape_id, VALUE val)
 {
-    VALUE fields_obj = rb_imemo_fields_new(owner, new_size, RB_OBJ_SHAREABLE_P(owner));
+    attr_index_t fields_count = RSHAPE_LEN(current_shape_id);
+
+    VALUE fields_obj = rb_imemo_fields_new(owner, target_shape_id, RB_OBJ_SHAREABLE_P(owner));
+
+    VALUE *fields = rb_imemo_fields_ptr(fields_obj);
+
     if (source_fields_obj) {
-        attr_index_t fields_count = RSHAPE_LEN(RBASIC_SHAPE_ID(source_fields_obj));
-        VALUE *fields = rb_imemo_fields_ptr(fields_obj);
         MEMCPY(fields, rb_imemo_fields_ptr(source_fields_obj), VALUE, fields_count);
-        RBASIC_SET_SHAPE_ID(fields_obj, RBASIC_SHAPE_ID(source_fields_obj));
         for (attr_index_t i = 0; i < fields_count; i++) {
             RB_OBJ_WRITTEN(fields_obj, Qundef, fields[i]);
         }
     }
+
+    RB_OBJ_WRITE(fields_obj, &fields[fields_count], val);
+
     return fields_obj;
 }
 
@@ -1848,13 +1851,13 @@ imemo_fields_set(VALUE owner, VALUE fields_obj, shape_id_t target_shape_id, ID f
     else {
         attr_index_t index = RSHAPE_INDEX(target_shape_id);
         if (concurrent || index >= RSHAPE_CAPACITY(current_shape_id)) {
-            fields_obj = imemo_fields_copy_capa(owner, original_fields_obj, RSHAPE_CAPACITY(target_shape_id));
+            return imemo_fields_copy_append(owner, original_fields_obj, current_shape_id, target_shape_id, val);
         }
 
         VALUE *table = rb_imemo_fields_ptr(fields_obj);
         RB_OBJ_WRITE(fields_obj, &table[index], val);
 
-        if (RSHAPE_LEN(target_shape_id) > RSHAPE_LEN(current_shape_id)) {
+        if (index >= RSHAPE_LEN(current_shape_id)) {
             RBASIC_SET_SHAPE_ID(fields_obj, target_shape_id);
         }
     }
@@ -1891,7 +1894,7 @@ generic_shape_ivar(VALUE obj, ID id, bool *new_ivar_out)
             }
 
             new_ivar = true;
-            target_shape_id = rb_shape_transition_add_ivar(obj, id);
+            target_shape_id = rb_obj_shape_transition_add_ivar(obj, id);
         }
     }
 
@@ -2005,7 +2008,8 @@ rb_vm_set_ivar_id(VALUE obj, ID id, VALUE val)
     return val;
 }
 
-void rb_obj_freeze_inline(VALUE x)
+void
+rb_obj_freeze_inline(VALUE x)
 {
     if (RB_FL_ABLE(x)) {
         RB_FL_SET_RAW(x, RUBY_FL_FREEZE);
@@ -2013,9 +2017,20 @@ void rb_obj_freeze_inline(VALUE x)
             RB_FL_UNSET_RAW(x, FL_USER2 | FL_USER3); // STR_CHILLED
         }
 
-        RB_SET_SHAPE_ID(x, rb_shape_transition_frozen(x));
+        shape_id_t shape_id = rb_obj_shape_transition_frozen(x);
+        switch (BUILTIN_TYPE(x)) {
+          case T_CLASS:
+          case T_MODULE:
+            RBASIC_SET_SHAPE_ID(RCLASS_WRITABLE_ENSURE_FIELDS_OBJ(x), shape_id);
+            // FIXME: How to do multi-shape?
+            RBASIC_SET_SHAPE_ID(x, shape_id);
+            break;
+          default:
+            RBASIC_SET_SHAPE_ID(x, shape_id);
+            break;
+        }
 
-        if (RBASIC_CLASS(x)) {
+        if (RBASIC_CLASS(x) && RCLASS_SINGLETON_P(RBASIC_CLASS(x))) {
             rb_freeze_singleton_class(x);
         }
     }
@@ -2299,11 +2314,10 @@ rb_copy_generic_ivar(VALUE dest, VALUE obj)
             return;
         }
 
-        new_fields_obj = rb_imemo_fields_new(dest, RSHAPE_CAPACITY(dest_shape_id), RB_OBJ_SHAREABLE_P(dest));
+        new_fields_obj = rb_imemo_fields_new(dest, dest_shape_id, RB_OBJ_SHAREABLE_P(dest));
         VALUE *src_buf = rb_imemo_fields_ptr(fields_obj);
         VALUE *dest_buf = rb_imemo_fields_ptr(new_fields_obj);
         rb_shape_copy_fields(new_fields_obj, dest_buf, dest_shape_id, src_buf, src_shape_id);
-        RBASIC_SET_SHAPE_ID(new_fields_obj, dest_shape_id);
 
         rb_obj_replace_fields(dest, new_fields_obj);
     }
@@ -4591,7 +4605,7 @@ static attr_index_t
 class_fields_ivar_set(VALUE klass, VALUE fields_obj, ID id, VALUE val, bool concurrent, VALUE *new_fields_obj, bool *new_ivar_out)
 {
     const VALUE original_fields_obj = fields_obj;
-    fields_obj = original_fields_obj ? original_fields_obj : rb_imemo_fields_new(klass, 1, true);
+    fields_obj = original_fields_obj ? original_fields_obj : rb_imemo_fields_new(klass, ROOT_SHAPE_ID, true);
 
     shape_id_t current_shape_id = RBASIC_SHAPE_ID(fields_obj);
     shape_id_t next_shape_id = current_shape_id; // for too_complex
@@ -4608,30 +4622,29 @@ class_fields_ivar_set(VALUE klass, VALUE fields_obj, ID id, VALUE val, bool conc
     }
 
     attr_index_t index = RSHAPE_INDEX(next_shape_id);
-    if (new_ivar) {
-        if (index >= RSHAPE_CAPACITY(current_shape_id)) {
-            // We allocate a new fields_obj even when concurrency isn't a concern
-            // so that we're embedded as long as possible.
-            fields_obj = imemo_fields_copy_capa(klass, fields_obj, RSHAPE_CAPACITY(next_shape_id));
-        }
-    }
-
-    VALUE *fields = rb_imemo_fields_ptr(fields_obj);
-
-    if (concurrent && original_fields_obj == fields_obj) {
-        // In the concurrent case, if we're mutating the existing
-        // fields_obj, we must use an atomic write, because if we're
-        // adding a new field, the shape_id must be written after the field
-        // and if we're updating an existing field, we at least need a relaxed
-        // write to avoid reaping.
-        RB_OBJ_ATOMIC_WRITE(fields_obj, &fields[index], val);
+    if (new_ivar && index >= RSHAPE_CAPACITY(current_shape_id)) {
+        // We allocate a new fields_obj even when concurrency isn't a concern
+        // so that we're embedded as long as possible.
+        fields_obj = imemo_fields_copy_append(klass, fields_obj, current_shape_id, next_shape_id, val);
     }
     else {
-        RB_OBJ_WRITE(fields_obj, &fields[index], val);
-    }
+        VALUE *fields = rb_imemo_fields_ptr(fields_obj);
 
-    if (new_ivar) {
-        RBASIC_SET_SHAPE_ID(fields_obj, next_shape_id);
+        if (concurrent && original_fields_obj == fields_obj) {
+            // In the concurrent case, if we're mutating the existing
+            // fields_obj, we must use an atomic write, because if we're
+            // adding a new field, the shape_id must be written after the field
+            // and if we're updating an existing field, we at least need a relaxed
+            // write to avoid reaping.
+            RB_OBJ_ATOMIC_WRITE(fields_obj, &fields[index], val);
+        }
+        else {
+            RB_OBJ_WRITE(fields_obj, &fields[index], val);
+        }
+
+        if (new_ivar) {
+            RBASIC_SET_SHAPE_ID(fields_obj, next_shape_id);
+        }
     }
 
     *new_fields_obj = fields_obj;
