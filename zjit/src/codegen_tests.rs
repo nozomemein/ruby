@@ -795,6 +795,30 @@ fn test_send_optional_arguments() {
 }
 
 #[test]
+fn test_send_optional_and_rest_arguments() {
+    assert_snapshot!(inspect("
+        def test(a, b = 2, *rest) = [a, b, rest]
+        def entry = [test(1), test(3, 4), test(5, 6, 7, 8)]
+        entry
+        entry
+    "), @"[[1, 2, []], [3, 4, []], [5, 6, [7, 8]]]");
+}
+
+#[test]
+fn test_send_rest_arguments_with_blocks() {
+    eval("
+        def with_yield(*args) = yield args.length
+        def with_block_param(*args, &block) = block.call(args.length)
+        def entry = [
+          with_yield(1, 2, 3) { |n| n + 4 },
+          with_block_param(1, 2, 3) { |n| n + 5 },
+        ]
+        entry
+    ");
+    assert_snapshot!(assert_compiles("entry"), @"[7, 8]");
+}
+
+#[test]
 fn test_send_nil_block_arg() {
     assert_snapshot!(inspect("
         def test = block_given?
